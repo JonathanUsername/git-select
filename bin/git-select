@@ -1,0 +1,62 @@
+'use strict';
+
+var child = require('child_process');
+var inquirer = require('inquirer');
+
+var formatting = '%(HEAD)__SEP%(refname:short)__SEP%(color:red)%(objectname:short)%(color:reset) - %(color:yellow)%(contents:subject)%(color:reset) - %(color:blue)%(authorname)%(color:reset) (%(color:green)%(committerdate:relative)%(color:reset))';
+var args = ['for-each-ref', '--sort=committerdate', 'refs/heads/', '--format=' + formatting];
+
+var git = child.spawn('git', args, { cwd: process.cwd() });
+
+var output = '';
+var refs;
+
+function writeOut(d) {
+    var data = d.toString();
+    process.stdout.write(data);
+}
+
+function writeOutErr(d) {
+    var data = d.toString();
+    process.stderr.write(data);
+}
+
+git.stdout.on('data', function (d) {
+    var data = d.toString();
+    output += data;
+});
+
+git.stderr.on('data', writeOutErr);
+
+git.on('close', function (code, signal) {
+    refs = output.split('\n').map(function (i) {
+        return i.split('__SEP').reduce(function (sum, i, index) {
+            if (index === 0) {
+                sum.head = i;
+            } else if (index === 1) {
+                sum.name = i;
+                sum.value = i;
+                sum.short = i;
+            } else if (index === 2) {
+                sum.name += ' ' + i;
+            }
+            return sum;
+        }, {});
+    }).filter(function (i) {
+        return i.value;
+    });
+
+    refs.push(new inquirer.Separator());
+    var choices = refs.reverse();
+
+    inquirer.prompt([{
+        type: 'list',
+        name: "name",
+        message: "Choose a branch",
+        choices: choices
+    }]).then(function (choice) {
+        var changing = child.spawn('git', ['checkout', choice.name], { cwd: process.cwd() });
+        changing.stdout.on('data', writeOut);
+        changing.stderr.on('data', writeOutErr);
+    });
+});
