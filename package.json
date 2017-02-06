@@ -1,12 +1,12 @@
 {
-  "name": "git_select",
+  "name": "git-select",
   "version": "1.0.0",
   "description": "",
   "main": "gitSelect.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "JonathanUsername",
   "license": "ISC",
   "dependencies": {
     "inquirer": "^3.0.1"
