@@ -13,3 +13,4 @@ Node (should work on any version, but it's untested on the really old ones)
 
 ## Next steps
 - [ ] Custom formatting
+- [ ] Better git parsing approach (less hacky)
