@@ -46,16 +46,53 @@ git.on('close', function(code, signal){
         .filter(i => i.value);
 
     refs.push(new inquirer.Separator());
+    refs.push({
+        name: 'Add new branch'
+    });
     const choices = refs.reverse()
 
     inquirer.prompt([{
         type: 'list',
         name: "name",
         message: "Choose a branch",
+        default: 1,
         choices
     }]).then(choice => {
-        const changing = child.spawn('git', ['checkout', choice.name], {cwd: process.cwd()});
-        changing.stdout.on('data', writeOut)
-        changing.stderr.on('data', writeOutErr);
+        if (choice.name === 'Add new branch') {
+            newBranch();
+        } else {
+            gitSpawn(['checkout', choice.name]);
+        }
     });
 });
+
+function gitSpawn(args) {
+    return new Promise((resolve, reject) => {
+        const spawnedProcess = child.spawn('git', args, {cwd: process.cwd()});
+        spawnedProcess.stdout.on('data', writeOut);
+        spawnedProcess.stderr.on('data', writeOutErr);
+        spawnedProcess.on('close', resolve);
+    });
+}
+
+function newBranch() {
+    inquirer.prompt([{
+        type: 'input',
+        name: "name",
+        message: "Choose a branch name (will be branched from master)"
+    }]).then(choice => {
+        inquirer.prompt([{
+            type: 'confirm',
+            name: "confirm",
+            message: "Fetch and merge master first?"
+        }]).then(fetch => {
+            if (fetch.confirm) {
+                gitSpawn(['fetch', 'origin', 'master:master']).then(() => {
+                    gitSpawn(['checkout', '-b', choice.name]);
+                });
+            } else {
+                gitSpawn(['checkout', '-b', choice.name]);
+            }
+        })
+    });
+}
