@@ -76,6 +76,7 @@ function gitSpawn(args) {
 }
 
 function newBranch() {
+    // TODO: prompt for branch to branch from - just 'master' for now
     inquirer.prompt([{
         type: 'input',
         name: "name",
@@ -88,10 +89,10 @@ function newBranch() {
         }]).then(fetch => {
             if (fetch.confirm) {
                 gitSpawn(['fetch', 'origin', 'master:master']).then(() => {
-                    gitSpawn(['checkout', '-b', choice.name]);
+                    gitSpawn(['checkout', '-b', choice.name, 'master']);
                 });
             } else {
-                gitSpawn(['checkout', '-b', choice.name]);
+                gitSpawn(['checkout', '-b', choice.name, 'master']);
             }
         })
     });
