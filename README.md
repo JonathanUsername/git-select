@@ -1,5 +1,5 @@
 # git-select
-Quick and dirty way to select recently used branches interactively from the command line. Branches are sorted in descending order by `committerdate`, and hitting enter over your choice will checkout that branch for you. This means you can easily swap between your most recently updated branches.
+Quick and dirty way to create and select recently used branches interactively from the command line. Branches are sorted in descending order by `committerdate`, and hitting enter over your choice will checkout that branch for you. This means you can easily swap between your most recently updated branches.
 
 ![git-select](https://cloud.githubusercontent.com/assets/7237525/22659875/48266196-ec97-11e6-8f9c-ff8da1a20f99.gif)
 
@@ -14,5 +14,6 @@ npm install -g git-select
 Node (should work on any version, but it's untested on the really old ones)
 
 ## Next steps
+- [x] Ability to create new branches
 - [ ] Custom formatting
 - [ ] Better git parsing approach (less hacky)
