@@ -23,6 +23,7 @@
     "rollup-plugin-babel": "^2.7.1"
   },
   "dependencies": {
-    "inquirer": "^3.0.1"
+    "inquirer": "^3.0.1",
+    "nodegit": "^0.17.0"
   }
 }
