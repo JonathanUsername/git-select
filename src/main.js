@@ -45,7 +45,7 @@ git.on('close', function(code, signal){
         }, {}))
         .filter(i => i.value);
 
-    var branchNames = refs.map(i => i.name);
+    var branchNames = refs.map(i => i.value).reverse();
 
     refs.push(new inquirer.Separator());
     refs.push({
@@ -92,7 +92,7 @@ function newBranch(branchNames) {
             inquirer.prompt([{
                 type: 'confirm',
                 name: "confirm",
-                message: "Fetch and merge branch first?"
+                message: `Fetch and merge ${branch.name} first? [git fetch origin ${branch.name}:${branch.name}]`
             }]).then(fetch => {
                 if (fetch.confirm) {
                     gitSpawn(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
