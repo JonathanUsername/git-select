@@ -45,6 +45,8 @@ git.on('close', function(code, signal){
         }, {}))
         .filter(i => i.value);
 
+    var branchNames = refs.map(i => i.name);
+
     refs.push(new inquirer.Separator());
     refs.push({
         name: 'Add new branch'
@@ -59,7 +61,7 @@ git.on('close', function(code, signal){
         choices
     }]).then(choice => {
         if (choice.name === 'Add new branch') {
-            newBranch();
+            newBranch(branchNames);
         } else {
             gitSpawn(['checkout', choice.name]);
         }
@@ -75,25 +77,32 @@ function gitSpawn(args) {
     });
 }
 
-function newBranch() {
+function newBranch(branchNames) {
     // TODO: prompt for branch to branch from - just 'master' for now
     inquirer.prompt([{
-        type: 'input',
+        type: 'list',
         name: "name",
-        message: "Choose a branch name (will be branched from master)"
-    }]).then(choice => {
+        message: "Choose a branch to branch from",
+        choices: branchNames
+    }]).then(branch => {
         inquirer.prompt([{
-            type: 'confirm',
-            name: "confirm",
-            message: "Fetch and merge master first?"
-        }]).then(fetch => {
-            if (fetch.confirm) {
-                gitSpawn(['fetch', 'origin', 'master:master']).then(() => {
-                    gitSpawn(['checkout', '-b', choice.name, 'master']);
-                });
-            } else {
-                gitSpawn(['checkout', '-b', choice.name, 'master']);
-            }
-        })
-    });
+            type: 'input',
+            name: "name",
+            message: "Choose a name for your new branch"
+        }]).then(choice => {
+            inquirer.prompt([{
+                type: 'confirm',
+                name: "confirm",
+                message: "Fetch and merge branch first?"
+            }]).then(fetch => {
+                if (fetch.confirm) {
+                    gitSpawn(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
+                        gitSpawn(['checkout', '-b', choice.name, branch.name]);
+                    });
+                } else {
+                    gitSpawn(['checkout', '-b', choice.name, branch.name]);
+                }
+            })
+        });
+    })
 }
