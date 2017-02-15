@@ -78,7 +78,6 @@ function gitSpawn(args) {
 }
 
 function newBranch(branchNames) {
-    // TODO: prompt for branch to branch from - just 'master' for now
     inquirer.prompt([{
         type: 'list',
         name: "name",
