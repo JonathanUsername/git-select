@@ -43,14 +43,11 @@ function promptBranches({repo, branches}) {
 function formatChoices(branch) {
     var formatted = {
         name: chalk.white(`${branch.short}`),
-        message: chalk.cyan(`${branch.message}`),
+        message: chalk.cyan(`${branch.message.trim()}`),
         author: chalk.yellow(`${branch.author}`),
         date: chalk.blue(`(${moment(branch.date).fromNow()})`)
     };
-    formatted = Object.keys(formatted).reduce((sum, i) => {
-        sum[i] = formatted[i].replace(/\n/, ' ');
-        return sum;
-    }, {});
+    formatted.message = formatted.message.replace(/\n/g, ' ')
     branch.name = `${formatted.name} ${formatted.message} ${formatted.author} ${formatted.date}`;
     return branch;
 }
