@@ -17,6 +17,7 @@ function promptBranches({repo, branches}) {
     choices.push({
         name: 'Add new branch'
     });
+    choices.push(new inquirer.Separator());
 
     choices.reverse();
 
