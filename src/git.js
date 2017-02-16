@@ -1,6 +1,7 @@
 const Git = require('nodegit');
 
 const findRepoPath = () => {
+    // TODO: cross-platform?
     return Git.Repository.discover('.', 0, '/');
 };
 
@@ -34,19 +35,22 @@ const getBranches = () => {
                     return Object.assign({branches, repo});
                 });
             });
-        });
+        }).catch(console.error);
 };
 
-const checkout = (repo, branch) => {
-    const ref = branch.ref.toString();
-    return Git.Checkout.tree(repo, ref, {
+const checkout = (repo, ref) => {
+    return repo.checkoutBranch(ref, {
         checkoutStrategy: Git.Checkout.STRATEGY.SAFE_CREATE,
-        notifyFlags: Git.Checkout.NOTIFY.ALL
-    }).catch(i => {
-        process.stderr.write(i)
-    }).then(i => {
-        return repo.setHead(ref).catch(process.stderr.write);
-    });
+        notifyFlags: Git.Checkout.NOTIFY.CONFLICT
+    }).catch(console.error);
+};
+
+const createBranch = (repo, name) => {
+    return repo.getHeadCommit().then(commit => {
+        return repo.createBranch(name, commit, false).then(i => {
+            checkout(repo, i.toString());
+        });
+    }).catch(console.error);
 };
 
 // function test() {
@@ -58,5 +62,6 @@ const checkout = (repo, branch) => {
 
 module.exports = {
     getBranches,
-    checkout
+    checkout,
+    createBranch
 };

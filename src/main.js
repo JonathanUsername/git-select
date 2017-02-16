@@ -3,15 +3,15 @@ const chalk = require('chalk');
 const moment = require('moment');
 const git = require('./git');
 
-var output = '';
-var refs;
 
-git.getBranches().then(promptBranches).catch(console.error);
+git.getBranches().then(promptBranches);
 
 function promptBranches({repo, branches}) {
-    var choices = branches
+    var sortedBranches = branches
         .sort((a, b) => a.date - b.date)
         .map(formatChoices);
+
+    var choices = sortedBranches.concat();
 
     choices.push(new inquirer.Separator());
     choices.push({
@@ -29,13 +29,13 @@ function promptBranches({repo, branches}) {
         choices
     }]).then(choice => {
         if (choice.branch === 'Add new branch') {
-            // newBranch(choices);
+            newBranch(repo, sortedBranches);
         } else {
             const branch = choices.find(i => i.short === choice.branch);
             if (!branch) {
                 new Error(`cannot find branch ${choice.short} in ${choices.map(i => i.short).join(' ')}`)
             }
-            git.checkout(repo, branch)
+            git.checkout(repo, branch.ref.toString())
         }
     });
 }
@@ -125,31 +125,32 @@ function formatChoices(branch) {
 //     });
 // }
 //
-// function newBranch(branchNames) {
-//     inquirer.prompt([{
-//         type: 'list',
-//         name: 'name',
-//         message: 'Choose a branch to branch from',
-//         choices: branchNames
-//     }]).then(branch => {
-//         inquirer.prompt([{
-//             type: 'input',
-//             name: 'name',
-//             message: 'Choose a name for your new branch'
-//         }]).then(choice => {
-//             inquirer.prompt([{
-//                 type: 'confirm',
-//                 name: 'confirm',
-//                 message: `Fetch and merge ${branch.name} first? [git fetch origin ${branch.name}:${branch.name}]`
-//             }]).then(fetch => {
-//                 if (fetch.confirm) {
-//                     gitSpawn(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
-//                         gitSpawn(['checkout', '-b', choice.name, branch.name]);
-//                     });
-//                 } else {
-//                     gitSpawn(['checkout', '-b', choice.name, branch.name]);
-//                 }
-//             });
-//         });
-//     });
-// }
+function newBranch(repo, choices) {
+    inquirer.prompt([{
+        type: 'list',
+        name: 'name',
+        message: 'Choose a branch to branch from',
+        choices: choices
+    }]).then(branch => {
+        inquirer.prompt([{
+            type: 'input',
+            name: 'name',
+            message: 'Choose a name for your new branch'
+        }]).then(choice => {
+            inquirer.prompt([{
+                type: 'confirm',
+                name: 'confirm',
+                message: `Fetch and merge ${branch.name} first? [git fetch origin ${branch.name}:${branch.name}]`
+            }]).then(fetch => {
+                if (fetch.confirm) {
+                    console.log(choices, choice, fetch)
+                    // gitSpawn(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
+                    //     gitSpawn(['checkout', '-b', choice.name, branch.name]);
+                    // });
+                } else {
+                    git.createBranch(repo, choice.name);
+                }
+            });
+        });
+    });
+}
