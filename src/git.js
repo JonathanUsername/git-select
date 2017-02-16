@@ -37,7 +37,7 @@ const getBranches = () => {
 };
 
 const checkout = (repo, branch) => {
-
+    return Git.Checkout.tree(repo, branch);
 };
 
 // function test() {

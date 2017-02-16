@@ -32,7 +32,11 @@ function promptBranches({repo, branches}) {
             // newBranch(choices);
         } else {
             // gitSpawn(['checkout', choice.branch]);
-            git.checkout(repo, choice.branch);
+            git.checkout(repo, choice.branch).then(i => {
+                console.log(i, 'checkout complete')
+            }).catch(e => {
+                process.stderr.write(e);
+            });
         }
     });
 }
