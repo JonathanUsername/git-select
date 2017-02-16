@@ -41,7 +41,7 @@ const getBranches = () => {
 
 const checkout = (repo, ref) => {
     return repo.checkoutBranch(ref, {
-        checkoutStrategy: Git.Checkout.STRATEGY.SAFE_CREATE,
+        checkoutStrategy: Git.Checkout.STRATEGY.SAFE,
         notifyFlags: Git.Checkout.NOTIFY.CONFLICT
     }).catch(console.error);
 };
