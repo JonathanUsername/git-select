@@ -31,8 +31,13 @@ function promptBranches({repo, branches}) {
         if (choice.branch === 'Add new branch') {
             // newBranch(choices);
         } else {
+            const branch = choices.find(i => i.short === choice.branch);
+            if (!branch) {
+                new Error(`cannot find branch ${choice.short} in ${choices.map(i => i.short).join(' ')}`)
+            }
+            console.log(branch)
             // gitSpawn(['checkout', choice.branch]);
-            git.checkout(repo, choice.branch).then(i => {
+            git.checkout(repo, branch).then(i => {
                 console.log(i, 'checkout complete')
             }).catch(e => {
                 process.stderr.write(e);

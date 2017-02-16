@@ -19,7 +19,8 @@ const getBranches = () => {
                     .map(i => ({
                         short: i.shorthand(),
                         value: i.shorthand(),
-                        oid: i.target()
+                        oid: i.target(),
+                        ref: i
                     }))
                     .map(i => {
                         return Git.Commit.lookup(repo, i.oid).then(commit => {
@@ -37,7 +38,14 @@ const getBranches = () => {
 };
 
 const checkout = (repo, branch) => {
-    return Git.Checkout.tree(repo, branch);
+    console.log('checking out', branch.oid)
+    return Git.Checkout.tree(repo, branch.oid, {
+        checkoutStrategy: Git.Checkout.STRATEGY.SAFE_CREATE,
+        notifyFlags: Git.Checkout.NOTIFY.ALL
+    }).catch(console.error).then(i => {
+        return repo.setHead(branch.oi, repo.defaultSignature)
+    });
+    // return repo.checkoutRef(branch.oid);
 };
 
 // function test() {
