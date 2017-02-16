@@ -46,7 +46,11 @@ function formatChoices(branch) {
         message: chalk.cyan(`${branch.message}`),
         author: chalk.yellow(`${branch.author}`),
         date: chalk.blue(`(${moment(branch.date).fromNow()})`)
-    }
+    };
+    formatted = Object.keys(formatted).reduce((sum, i) => {
+        sum[i] = formatted[i].replace(/\n/, ' ');
+        return sum;
+    }, {});
     branch.name = `${formatted.name} ${formatted.message} ${formatted.author} ${formatted.date}`;
     return branch;
 }
