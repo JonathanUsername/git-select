@@ -38,14 +38,15 @@ const getBranches = () => {
 };
 
 const checkout = (repo, branch) => {
-    console.log('checking out', branch.oid)
-    return Git.Checkout.tree(repo, branch.oid, {
+    const ref = branch.ref.toString();
+    return Git.Checkout.tree(repo, ref, {
         checkoutStrategy: Git.Checkout.STRATEGY.SAFE_CREATE,
         notifyFlags: Git.Checkout.NOTIFY.ALL
-    }).catch(console.error).then(i => {
-        return repo.setHead(branch.oi, repo.defaultSignature)
+    }).catch(i => {
+        process.stderr.write(i)
+    }).then(i => {
+        return repo.setHead(ref).catch(process.stderr.write);
     });
-    // return repo.checkoutRef(branch.oid);
 };
 
 // function test() {
