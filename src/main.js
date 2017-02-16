@@ -33,98 +33,24 @@ function promptBranches({repo, branches}) {
         } else {
             const branch = choices.find(i => i.short === choice.branch);
             if (!branch) {
-                new Error(`cannot find branch ${choice.short} in ${choices.map(i => i.short).join(' ')}`)
+                new Error(`cannot find branch ${choice.short} in ${choices.map(i => i.short).join(' ')}`);
             }
-            git.checkout(repo, branch.ref.toString())
+            git.checkout(repo, branch.ref.toString());
         }
     });
 }
 
 function formatChoices(branch) {
-    var ret = Object.assign(branch, {
-        formatted: {
-            name: chalk.white(`${branch.short}`),
-            author: chalk.yellow(`${branch.author}`),
-            date: chalk.blue(`(${moment(branch.date).fromNow()})`)
-        }
-    });
-    ret.name = `${ret.formatted.name} ${ret.formatted.author} ${ret.formatted.date}`;
-    return ret;
+    var formatted = {
+        name: chalk.white(`${branch.short}`),
+        message: chalk.cyan(`${branch.message}`),
+        author: chalk.yellow(`${branch.author}`),
+        date: chalk.blue(`(${moment(branch.date).fromNow()})`)
+    }
+    branch.name = `${formatted.name} ${formatted.message} ${formatted.author} ${formatted.date}`;
+    return branch;
 }
 
-// const formatting = '%(HEAD)__SEP%(refname:short)__SEP%(color:red)%(objectname:short)%(color:reset) - %(color:yellow)%(contents:subject)%(color:reset) - %(color:blue)%(authorname)%(color:reset) (%(color:green)%(committerdate:relative)%(color:reset))';
-// const args = ['for-each-ref', '--sort=committerdate', 'refs/heads/', `--format=${formatting}`];
-//
-// const git = child.spawn('git', args, {cwd: process.cwd()});
-
-// function writeOut(d) {
-//     const data = d.toString();
-//     process.stdout.write(data);
-// }
-//
-// function writeOutErr(d) {
-//     const data = d.toString();
-//     process.stderr.write(data);
-// }
-//
-// git.stdout.on('data', (d) => {
-//     const data = d.toString();
-//     output += data;
-// });
-//
-// git.stderr.on('data', writeOutErr);
-
-// git.on('close', function(){
-//     refs = output.split('\n')
-//         .map(i => i.split('__SEP')
-//         .reduce((sum, i, index) => {
-//             if (index === 0) {
-//                 sum.head = i;
-//             }
-//             else if (index === 1) {
-//                 sum.name = i;
-//                 sum.value = i;
-//                 sum.short = i;
-//             }
-//             else if (index === 2) {
-//                 sum.name += ` ${i}`;
-//             }
-//             return sum;
-//         }, {}))
-//         .filter(i => i.value);
-//
-//     var branchNames = refs.map(i => i.value).reverse();
-//
-//     refs.push(new inquirer.Separator());
-//     refs.push({
-//         name: 'Add new branch'
-//     });
-//     const choices = refs.reverse();
-//
-//     inquirer.prompt([{
-//         type: 'list',
-//         name: 'name',
-//         message: 'Choose a branch',
-//         default: 1,
-//         choices
-//     }]).then(choice => {
-//         if (choice.name === 'Add new branch') {
-//             newBranch(branchNames);
-//         } else {
-//             gitSpawn(['checkout', choice.name]);
-//         }
-//     });
-// });
-
-// function gitSpawn(args) {
-//     return new Promise((resolve) => {
-//         const spawnedProcess = child.spawn('git', args, {cwd: process.cwd()});
-//         spawnedProcess.stdout.on('data', writeOut);
-//         spawnedProcess.stderr.on('data', writeOutErr);
-//         spawnedProcess.on('close', resolve);
-//     });
-// }
-//
 function newBranch(repo, choices) {
     inquirer.prompt([{
         type: 'list',
@@ -143,7 +69,8 @@ function newBranch(repo, choices) {
                 message: `Fetch and merge ${branch.name} first? [git fetch origin ${branch.name}:${branch.name}]`
             }]).then(fetch => {
                 if (fetch.confirm) {
-                    console.log(choices, choice, fetch)
+                    console.log('fetching not yet supported');
+                    git.createBranch(repo, choice.name);
                     // gitSpawn(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
                     //     gitSpawn(['checkout', '-b', choice.name, branch.name]);
                     // });

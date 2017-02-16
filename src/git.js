@@ -27,7 +27,8 @@ const getBranches = () => {
                         return Git.Commit.lookup(repo, i.oid).then(commit => {
                             return Object.assign(i, {
                                 date: commit.date(),
-                                author: commit.author().name()
+                                author: commit.author().name(),
+                                message: commit.message()
                             });
                         });
                     });
