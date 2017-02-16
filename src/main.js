@@ -26,7 +26,7 @@ git.stdout.on('data', (d) => {
 
 git.stderr.on('data', writeOutErr);
 
-git.on('close', function(code, signal){
+git.on('close', function(){
     refs = output.split('\n')
         .map(i => i.split('__SEP')
         .reduce((sum, i, index) => {
@@ -40,7 +40,7 @@ git.on('close', function(code, signal){
             }
             else if (index === 2) {
                 sum.name += ` ${i}`;
-            };
+            }
             return sum;
         }, {}))
         .filter(i => i.value);
@@ -51,12 +51,12 @@ git.on('close', function(code, signal){
     refs.push({
         name: 'Add new branch'
     });
-    const choices = refs.reverse()
+    const choices = refs.reverse();
 
     inquirer.prompt([{
         type: 'list',
-        name: "name",
-        message: "Choose a branch",
+        name: 'name',
+        message: 'Choose a branch',
         default: 1,
         choices
     }]).then(choice => {
@@ -69,7 +69,7 @@ git.on('close', function(code, signal){
 });
 
 function gitSpawn(args) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const spawnedProcess = child.spawn('git', args, {cwd: process.cwd()});
         spawnedProcess.stdout.on('data', writeOut);
         spawnedProcess.stderr.on('data', writeOutErr);
@@ -80,18 +80,18 @@ function gitSpawn(args) {
 function newBranch(branchNames) {
     inquirer.prompt([{
         type: 'list',
-        name: "name",
-        message: "Choose a branch to branch from",
+        name: 'name',
+        message: 'Choose a branch to branch from',
         choices: branchNames
     }]).then(branch => {
         inquirer.prompt([{
             type: 'input',
-            name: "name",
-            message: "Choose a name for your new branch"
+            name: 'name',
+            message: 'Choose a name for your new branch'
         }]).then(choice => {
             inquirer.prompt([{
                 type: 'confirm',
-                name: "confirm",
+                name: 'confirm',
                 message: `Fetch and merge ${branch.name} first? [git fetch origin ${branch.name}:${branch.name}]`
             }]).then(fetch => {
                 if (fetch.confirm) {
@@ -101,7 +101,7 @@ function newBranch(branchNames) {
                 } else {
                     gitSpawn(['checkout', '-b', choice.name, branch.name]);
                 }
-            })
+            });
         });
-    })
+    });
 }
