@@ -77,7 +77,7 @@ const checkout = (repo, ref) => {
             repo.createBranch(ref.shorthand(), commit, false).then(newRef => {
                 checkout(repo, newRef).then(() => {
                     // setUpstream
-                    
+                    Git.Branch.setUpstream(ref.shorthand(), 'origin');
                 });
             });
         });
