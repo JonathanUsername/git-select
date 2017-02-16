@@ -62,6 +62,7 @@ function newBranch(repo, choices) {
         message: 'Choose a branch to branch from',
         choices: choices
     }]).then(branch => {
+        const headCommit = choices.find(i => i.short === branch.name).oid;
         inquirer.prompt([{
             type: 'input',
             name: 'name',
@@ -74,12 +75,12 @@ function newBranch(repo, choices) {
             }]).then(fetch => {
                 if (fetch.confirm) {
                     console.log('fetching not yet supported');
-                    git.createBranch(repo, choice.name);
+                    git.createBranch(repo, choice.name, headCommit);
                     // gitSpawn(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
                     //     gitSpawn(['checkout', '-b', choice.name, branch.name]);
                     // });
                 } else {
-                    git.createBranch(repo, choice.name);
+                    git.createBranch(repo, choice.name, headCommit);
                 }
             });
         });

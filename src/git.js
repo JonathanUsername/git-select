@@ -46,11 +46,9 @@ const checkout = (repo, ref) => {
     }).catch(console.error);
 };
 
-const createBranch = (repo, name) => {
-    return repo.getHeadCommit().then(commit => {
-        return repo.createBranch(name, commit, false).then(i => {
-            checkout(repo, i.toString());
-        });
+const createBranch = (repo, name, headCommit) => {
+    return repo.createBranch(name, headCommit, false).then(i => {
+        checkout(repo, i.toString());
     }).catch(console.error);
 };
 
