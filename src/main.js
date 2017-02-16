@@ -13,11 +13,16 @@ function promptBranches({repo, branches}) {
 
     var choices = sortedBranches.concat();
 
-    choices.push(new inquirer.Separator());
-    choices.push({
-        name: 'Add new branch'
-    });
-    choices.push(new inquirer.Separator());
+    const otherOptions = [
+        new inquirer.Separator(),
+        {
+            name: 'Add new branch'
+        },{
+            name: 'Checkout remote branch'
+        },
+        new inquirer.Separator()
+    ];
+    choices = choices.concat(otherOptions);
 
     choices.reverse();
 
@@ -26,17 +31,19 @@ function promptBranches({repo, branches}) {
         name: 'branch',
         value: 'short',
         message: 'Choose a branch',
-        default: 1,
+        default: otherOptions.filter(i => i.name).length,
         choices
     }]).then(choice => {
         if (choice.branch === 'Add new branch') {
             newBranch(repo, sortedBranches);
+        } else if (choice.branch === 'Checkout remote branch') {
+            git.getRemoteBranches().then(promptBranches);
         } else {
             const branch = choices.find(i => i.short === choice.branch);
-            if (!branch) {
+            if (!branch || !branch.ref) {
                 new Error(`cannot find branch ${choice.short} in ${choices.map(i => i.short).join(' ')}`);
             }
-            git.checkout(repo, branch.ref.toString());
+            git.checkout(repo, branch.ref);
         }
     });
 }
@@ -48,7 +55,7 @@ function formatChoices(branch) {
         author: chalk.yellow(`${branch.author}`),
         date: chalk.blue(`(${moment(branch.date).fromNow()})`)
     };
-    formatted.message = formatted.message.replace(/\n/g, ' ')
+    formatted.message = formatted.message.replace(/\n/g, ' ');
     branch.name = `${formatted.name} ${formatted.message} ${formatted.author} ${formatted.date}`;
     return branch;
 }
