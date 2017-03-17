@@ -41,10 +41,10 @@ var slicedToArray = function () {
 
 var child = require('child_process');
 var inquirer = require('inquirer');
-var chalk = requite('chalk');
+var chalk = require('chalk');
 var moment = require('moment');
 
-var formatting = '{"head": %(HEAD), "refname": %(refname:short), "objectname": %(objectname:short), "subject": %(contents:subject), "author": %(authorname), "committerdate": %(committerdate)}';
+var jsonFormat = '{"head": %(HEAD), "refname": %(refname:short), "objectname": %(objectname:short), "subject": %(contents:subject), "author": %(authorname), "committerdate": %(committerdate)}';
 
 function doGit(args) {
     return new Promise(function (resolve, reject) {
@@ -53,7 +53,7 @@ function doGit(args) {
         git.stdout.on('data', function (data) {
             output += data.toString();
         });
-        git.stdout.on('close', function (data) {
+        git.stdout.on('close', function () {
             resolve(output.toString().trim());
         });
         git.stderr.on('data', function (e) {
@@ -79,17 +79,22 @@ function getGitName() {
 }
 
 function getHeads() {
-    var args = ['for-each-ref', '--sort=committerdate', 'refs/heads/', '--format=' + formatting, '--tcl'];
+    var args = ['for-each-ref', '--sort=committerdate', 'refs/heads/', '--format=' + jsonFormat, '--tcl'];
     return doGit(args).then(formatRefs);
 }
 
 function getRemotes() {
-    var args = ['for-each-ref', '--sort=committerdate', 'refs/remotes/origin/', '--format=' + formatting, '--tcl'];
+    var args = ['for-each-ref', '--sort=committerdate', 'refs/remotes/origin/', '--format=' + jsonFormat, '--tcl'];
     return doGit(args).then(formatRefs);
 }
 
 function absName(refname) {
     return refname.replace(/^heads\/origin\//, '').replace(/^remotes\/origin\//, '').replace(/^origin\//, '');
+}
+
+function writeOut(d) {
+    var data = d.toString();
+    process.stdout.write(data);
 }
 
 function writeOutErr(d) {
@@ -106,23 +111,15 @@ function formatRefs(output) {
             committerdate: new Date(i.committerdate)
         });
     });
-    // .reduce((sum, i, index) => {
-    //     if (index === 0) {
-    //         sum.head = i;
-    //     }
-    //     else if (index === 1) {
-    //         sum.name = i;
-    //         sum.value = i;
-    //         sum.short = i;
-    //     }
-    //     else if (index === 2) {
-    //         sum.name += ` ${i}`;
-    //     };
-    //     return {};
-    // }, {}))
-    // .filter(i => i.value);
     return Promise.resolve(ret);
 }
+
+var byDate = function byDate(a, b) {
+    return b.committerdate - a.committerdate;
+};
+var uniq = function uniq(value, index, self) {
+    return self.indexOf(value) === index;
+};
 
 var promises = [getGitName(), getHeads(), getRemotes()];
 
@@ -140,71 +137,64 @@ Promise.all(promises).then(function (values) {
     }).filter(function (i) {
         return !localBranches.includes(i.displayName);
     });
-    var choices = heads.concat(myRemotes).sort(function (a, b) {
-        return a.committerdate > b.committerdate;
-    });
+    var choices = heads.concat(myRemotes).sort(byDate);
     var formattedChoices = choices.map(formatChoices);
-    console.log(choices);
+
+    var menu = formattedChoices.concat();
+
+    menu.unshift(new inquirer.Separator());
+    menu.unshift({
+        name: 'Add new branch'
+    });
+
+    inquirer.prompt([{
+        type: 'list',
+        name: 'name',
+        message: 'Choose a branch',
+        default: 1,
+        choices: menu
+    }]).then(function (choice) {
+        var chosen = formattedChoices.find(function (i) {
+            return i.name === choice.name;
+        });
+        if (choice.name === 'Add new branch') {
+            var branchChoices = heads.sort(byDate).map(function (i) {
+                return absName(i.refname);
+            }).filter(uniq);
+
+            newBranch(branchChoices);
+        } else {
+            doGit(['checkout', chosen.displayName]).then(writeOut).catch(writeOutErr);
+        }
+    });
 }).catch(writeOutErr);
 
-// git.on('close', function(code, signal) {
-//     var branchNames = refs.map(i => i.value).reverse();
-//
-//     refs.push(new inquirer.Separator());
-//     refs.push({
-//         name: 'Add new branch'
-//     });
-//     const choices = refs.reverse()
-//
-//     inquirer.prompt([{
-//         type: 'list',
-//         name: "name",
-//         message: "Choose a branch",
-//         default: 1,
-//         choices
-//     }]).then(choice => {
-//         if (choice.name === 'Add new branch') {
-//             newBranch(branchNames);
-//         } else {
-//             gitSpawn(['checkout', choice.name]);
-//         }
-//     });
-// });
-//
-// function gitSpawn(args) {
-//     return new Promise((resolve, reject) => {
-//         const spawnedProcess = child.spawn('git', args, {cwd: process.cwd()});
-//         spawnedProcess.stdout.on('data', writeOut);
-//         spawnedProcess.stderr.on('data', writeOutErr);
-//         spawnedProcess.on('close', resolve);
-//     });
-// }
-//
-// function newBranch(branchNames) {
-//     inquirer.prompt([{
-//         type: 'list',
-//         name: "name",
-//         message: "Choose a branch to branch from",
-//         choices: branchNames
-//     }]).then(branch => {
-//         inquirer.prompt([{
-//             type: 'input',
-//             name: "name",
-//             message: "Choose a name for your new branch"
-//         }]).then(choice => {
-//             inquirer.prompt([{
-//                 type: 'confirm',
-//                 name: "confirm",
-//                 message: `Fetch and merge ${branch.name} first? [git fetch origin ${branch.name}:${branch.name}]`
-//             }]).then(fetch => {
-//                 if (fetch.confirm) {
-//                     gitSpawn(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
-//                         gitSpawn(['checkout', '-b', choice.name, branch.name]);
-//                     });
-//                 } else {
-//                     gitSpawn(['checkout', '-b', choice.name, branch.name]);
-//                 }
-//             })
-//         });
-//     })
-// }
+// TODO: tidy this up
+function newBranch(branchNames) {
+    inquirer.prompt([{
+        type: 'list',
+        name: 'name',
+        message: 'Choose a branch to branch from',
+        choices: branchNames
+    }]).then(function (branch) {
+        inquirer.prompt([{
+            type: 'input',
+            name: 'name',
+            message: 'Choose a name for your new branch'
+        }]).then(function (choice) {
+            inquirer.prompt([{
+                type: 'confirm',
+                name: 'confirm',
+                message: 'Fetch and merge ' + branch.name + ' first? [git fetch origin ' + branch.name + ':' + branch.name + ']'
+            }]).then(function (fetch) {
+                if (fetch.confirm) {
+                    doGit(['fetch', 'origin', branch.name + ':' + branch.name]).then(function () {
+                        doGit(['checkout', '-b', choice.name, branch.name]);
+                    });
+                } else {
+                    doGit(['checkout', '-b', choice.name, branch.name]);
+                }
+            });
+        });
+    });
+}
