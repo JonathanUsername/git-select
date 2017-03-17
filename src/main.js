@@ -1,7 +1,9 @@
 const child = require('child_process');
 const inquirer = require('inquirer');
+const chalk = require('chalk');
+const moment = require('moment');
 
-const formatting = '{"head": %(HEAD), "refname": %(refname:short), "objectname": %(objectname:short), "subject": %(contents:subject), "author": %(authorname), "committerdate": %(committerdate:relative)}';
+const jsonFormat = '{"head": %(HEAD), "refname": %(refname:short), "objectname": %(objectname:short), "subject": %(contents:subject), "author": %(authorname), "committerdate": %(committerdate)}';
 
 function doGit(args) {
     return new Promise((resolve, reject) => {
@@ -10,7 +12,7 @@ function doGit(args) {
         git.stdout.on('data', data => {
             output += data.toString();
         });
-        git.stdout.on('close', data => {
+        git.stdout.on('close', () => {
             resolve(output.toString().trim());
         });
         git.stderr.on('data', (e) => {
@@ -19,18 +21,37 @@ function doGit(args) {
     });
 }
 
+function formatChoices(branch) {
+    var formatted = {
+        name: chalk.white(`${branch.refname}`),
+        message: chalk.cyan(`${branch.subject.trim()}`),
+        author: chalk.yellow(`${branch.author}`),
+        date: chalk.blue(`(${moment(branch.committerdate).fromNow()})`)
+    };
+    formatted.message = formatted.message.replace(/\n/g, ' ');
+    branch.name = `${formatted.name} ${formatted.message} ${formatted.author} ${formatted.date}`;
+    return branch;
+}
+
 function getGitName() {
     return doGit(['config', 'user.name']);
 }
 
 function getHeads() {
-    const args = ['for-each-ref', '--sort=committerdate', 'refs/heads/', `--format=${formatting}`, '--tcl'];
+    const args = ['for-each-ref', '--sort=committerdate', 'refs/heads/', `--format=${jsonFormat}`, '--tcl'];
     return doGit(args).then(formatRefs);
 }
 
 function getRemotes() {
-    const args = ['for-each-ref', '--sort=committerdate', 'refs/remotes/origin/', `--format=${formatting}`, '--tcl'];
+    const args = ['for-each-ref', '--sort=committerdate', 'refs/remotes/origin/', `--format=${jsonFormat}`, '--tcl'];
     return doGit(args).then(formatRefs);
+}
+
+function absName(refname) {
+    return refname
+        .replace(/^heads\/origin\//, '')
+        .replace(/^remotes\/origin\//, '')
+        .replace(/^origin\//, '');
 }
 
 function writeOut(d) {
@@ -45,104 +66,86 @@ function writeOutErr(d) {
 
 function formatRefs(output) {
     const ret = output.split('\n')
-        .map(i => JSON.parse(i));
-        // .reduce((sum, i, index) => {
-        //     if (index === 0) {
-        //         sum.head = i;
-        //     }
-        //     else if (index === 1) {
-        //         sum.name = i;
-        //         sum.value = i;
-        //         sum.short = i;
-        //     }
-        //     else if (index === 2) {
-        //         sum.name += ` ${i}`;
-        //     };
-        //     return {};
-        // }, {}))
-        // .filter(i => i.value);
+        .map(i => JSON.parse(i))
+        .map(i =>
+            Object.assign(i, {
+                displayName: absName(i.refname),
+                committerdate: new Date(i.committerdate)
+            })
+        );
     return Promise.resolve(ret);
 }
+
+const byDate = (a, b) => b.committerdate - a.committerdate;
+const uniq = (value, index, self) => self.indexOf(value) === index;
 
 const promises = [getGitName(), getHeads(), getRemotes()];
 
 Promise.all(promises).then(values => {
     const [gitName, heads, remotes] = values;
-    // console.log(heads)
+
     const localBranches = heads.map(i => i.refname);
     const myRemotes = remotes
         .filter(i => i.author === gitName)
-        .map(i =>
-            Object.assign(i, {
-                displayName: i.refname
-                    .replace(/^heads\/origin\//, '')
-                    .replace(/^remotes\/origin\//, '')
-                    .replace(/^origin\//, '')
-            })
-        )
         .filter(i => !localBranches.includes(i.displayName));
-    const choices = heads.concat(myRemotes).reverse();
-    console.log(choices)
-}).catch(writeOutErr)
+    const choices = heads.concat(myRemotes).sort(byDate);
+    const formattedChoices = choices.map(formatChoices);
 
-// git.on('close', function(code, signal) {
-//     var branchNames = refs.map(i => i.value).reverse();
-//
-//     refs.push(new inquirer.Separator());
-//     refs.push({
-//         name: 'Add new branch'
-//     });
-//     const choices = refs.reverse()
-//
-//     inquirer.prompt([{
-//         type: 'list',
-//         name: "name",
-//         message: "Choose a branch",
-//         default: 1,
-//         choices
-//     }]).then(choice => {
-//         if (choice.name === 'Add new branch') {
-//             newBranch(branchNames);
-//         } else {
-//             gitSpawn(['checkout', choice.name]);
-//         }
-//     });
-// });
-//
-// function gitSpawn(args) {
-//     return new Promise((resolve, reject) => {
-//         const spawnedProcess = child.spawn('git', args, {cwd: process.cwd()});
-//         spawnedProcess.stdout.on('data', writeOut);
-//         spawnedProcess.stderr.on('data', writeOutErr);
-//         spawnedProcess.on('close', resolve);
-//     });
-// }
-//
-// function newBranch(branchNames) {
-//     inquirer.prompt([{
-//         type: 'list',
-//         name: "name",
-//         message: "Choose a branch to branch from",
-//         choices: branchNames
-//     }]).then(branch => {
-//         inquirer.prompt([{
-//             type: 'input',
-//             name: "name",
-//             message: "Choose a name for your new branch"
-//         }]).then(choice => {
-//             inquirer.prompt([{
-//                 type: 'confirm',
-//                 name: "confirm",
-//                 message: `Fetch and merge ${branch.name} first? [git fetch origin ${branch.name}:${branch.name}]`
-//             }]).then(fetch => {
-//                 if (fetch.confirm) {
-//                     gitSpawn(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
-//                         gitSpawn(['checkout', '-b', choice.name, branch.name]);
-//                     });
-//                 } else {
-//                     gitSpawn(['checkout', '-b', choice.name, branch.name]);
-//                 }
-//             })
-//         });
-//     })
-// }
+    var menu = formattedChoices.concat();
+
+    menu.unshift(new inquirer.Separator());
+    menu.unshift({
+        name: 'Add new branch'
+    });
+
+    inquirer.prompt([{
+        type: 'list',
+        name: 'name',
+        message: 'Choose a branch',
+        default: 1,
+        choices: menu
+    }]).then(choice => {
+        const chosen = formattedChoices.find(i => i.name === choice.name);
+        if (choice.name === 'Add new branch') {
+            const branchChoices = heads
+                .sort(byDate)
+                .map(i => absName(i.refname))
+                .filter(uniq);
+
+            newBranch(branchChoices);
+        } else {
+            doGit(['checkout', chosen.displayName]).then(writeOut).catch(writeOutErr);
+        }
+    });
+}).catch(writeOutErr);
+
+
+// TODO: tidy this up
+function newBranch(branchNames) {
+    inquirer.prompt([{
+        type: 'list',
+        name: 'name',
+        message: 'Choose a branch to branch from',
+        choices: branchNames
+    }]).then(branch => {
+        inquirer.prompt([{
+            type: 'input',
+            name: 'name',
+            message: 'Choose a name for your new branch'
+        }]).then(choice => {
+            inquirer.prompt([{
+                type: 'confirm',
+                name: 'confirm',
+                message: `Fetch and merge ${branch.name} first? [git fetch origin ${branch.name}:${branch.name}]`
+            }]).then(fetch => {
+                if (fetch.confirm) {
+                    doGit(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
+                        doGit(['checkout', '-b', choice.name, branch.name]);
+                    });
+                } else {
+                    doGit(['checkout', '-b', choice.name, branch.name]);
+                }
+            });
+        });
+    });
+}

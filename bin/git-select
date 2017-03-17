@@ -1,20 +1,95 @@
 #!/usr/bin/env node
 'use strict';
 
+var slicedToArray = function () {
+  function sliceIterator(arr, i) {
+    var _arr = [];
+    var _n = true;
+    var _d = false;
+    var _e = undefined;
+
+    try {
+      for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+        _arr.push(_s.value);
+
+        if (i && _arr.length === i) break;
+      }
+    } catch (err) {
+      _d = true;
+      _e = err;
+    } finally {
+      try {
+        if (!_n && _i["return"]) _i["return"]();
+      } finally {
+        if (_d) throw _e;
+      }
+    }
+
+    return _arr;
+  }
+
+  return function (arr, i) {
+    if (Array.isArray(arr)) {
+      return arr;
+    } else if (Symbol.iterator in Object(arr)) {
+      return sliceIterator(arr, i);
+    } else {
+      throw new TypeError("Invalid attempt to destructure non-iterable instance");
+    }
+  };
+}();
+
 var child = require('child_process');
 var inquirer = require('inquirer');
+var chalk = requite('chalk');
+var moment = require('moment');
 
-var formatting = '%(HEAD)__SEP%(refname:short)__SEP%(color:red)%(objectname:short)%(color:reset) - %(color:yellow)%(contents:subject)%(color:reset) - %(color:blue)%(authorname)%(color:reset) (%(color:green)%(committerdate:relative)%(color:reset))';
-var args = ['for-each-ref', '--sort=committerdate', 'refs/heads/', '--format=' + formatting];
+var formatting = '{"head": %(HEAD), "refname": %(refname:short), "objectname": %(objectname:short), "subject": %(contents:subject), "author": %(authorname), "committerdate": %(committerdate)}';
 
-var git = child.spawn('git', args, { cwd: process.cwd() });
+function doGit(args) {
+    return new Promise(function (resolve, reject) {
+        var git = child.spawn('git', args, { cwd: process.cwd() });
+        var output = '';
+        git.stdout.on('data', function (data) {
+            output += data.toString();
+        });
+        git.stdout.on('close', function (data) {
+            resolve(output.toString().trim());
+        });
+        git.stderr.on('data', function (e) {
+            reject(e);
+        });
+    });
+}
 
-var output = '';
-var refs;
+function formatChoices(branch) {
+    var formatted = {
+        name: chalk.white('' + branch.refname),
+        message: chalk.cyan('' + branch.subject.trim()),
+        author: chalk.yellow('' + branch.author),
+        date: chalk.blue('(' + moment(branch.committerdate).fromNow() + ')')
+    };
+    formatted.message = formatted.message.replace(/\n/g, ' ');
+    branch.name = formatted.name + ' ' + formatted.message + ' ' + formatted.author + ' ' + formatted.date;
+    return branch;
+}
 
-function writeOut(d) {
-    var data = d.toString();
-    process.stdout.write(data);
+function getGitName() {
+    return doGit(['config', 'user.name']);
+}
+
+function getHeads() {
+    var args = ['for-each-ref', '--sort=committerdate', 'refs/heads/', '--format=' + formatting, '--tcl'];
+    return doGit(args).then(formatRefs);
+}
+
+function getRemotes() {
+    var args = ['for-each-ref', '--sort=committerdate', 'refs/remotes/origin/', '--format=' + formatting, '--tcl'];
+    return doGit(args).then(formatRefs);
+}
+
+function absName(refname) {
+    return refname.replace(/^heads\/origin\//, '').replace(/^remotes\/origin\//, '').replace(/^origin\//, '');
 }
 
 function writeOutErr(d) {
@@ -22,90 +97,114 @@ function writeOutErr(d) {
     process.stderr.write(data);
 }
 
-git.stdout.on('data', function (d) {
-    var data = d.toString();
-    output += data;
-});
-
-git.stderr.on('data', writeOutErr);
-
-git.on('close', function (code, signal) {
-    refs = output.split('\n').map(function (i) {
-        return i.split('__SEP').reduce(function (sum, i, index) {
-            if (index === 0) {
-                sum.head = i;
-            } else if (index === 1) {
-                sum.name = i;
-                sum.value = i;
-                sum.short = i;
-            } else if (index === 2) {
-                sum.name += ' ' + i;
-            }
-            return sum;
-        }, {});
-    }).filter(function (i) {
-        return i.value;
-    });
-
-    var branchNames = refs.map(function (i) {
-        return i.value;
-    }).reverse();
-
-    refs.push(new inquirer.Separator());
-    refs.push({
-        name: 'Add new branch'
-    });
-    var choices = refs.reverse();
-
-    inquirer.prompt([{
-        type: 'list',
-        name: "name",
-        message: "Choose a branch",
-        default: 1,
-        choices: choices
-    }]).then(function (choice) {
-        if (choice.name === 'Add new branch') {
-            newBranch(branchNames);
-        } else {
-            gitSpawn(['checkout', choice.name]);
-        }
-    });
-});
-
-function gitSpawn(args) {
-    return new Promise(function (resolve, reject) {
-        var spawnedProcess = child.spawn('git', args, { cwd: process.cwd() });
-        spawnedProcess.stdout.on('data', writeOut);
-        spawnedProcess.stderr.on('data', writeOutErr);
-        spawnedProcess.on('close', resolve);
-    });
-}
-
-function newBranch(branchNames) {
-    inquirer.prompt([{
-        type: 'list',
-        name: "name",
-        message: "Choose a branch to branch from",
-        choices: branchNames
-    }]).then(function (branch) {
-        inquirer.prompt([{
-            type: 'input',
-            name: "name",
-            message: "Choose a name for your new branch"
-        }]).then(function (choice) {
-            inquirer.prompt([{
-                type: 'confirm',
-                name: "confirm",
-                message: 'Fetch and merge ' + branch.name + ' first? [git fetch origin ' + branch.name + ':' + branch.name + ']'
-            }]).then(function (fetch) {
-                if (fetch.confirm) {
-                    gitSpawn(['fetch', 'origin', branch.name + ':' + branch.name]).then(function () {
-                        gitSpawn(['checkout', '-b', choice.name, branch.name]);
-                    });
-                } else {
-                    gitSpawn(['checkout', '-b', choice.name, branch.name]);
-                }
-            });
+function formatRefs(output) {
+    var ret = output.split('\n').map(function (i) {
+        return JSON.parse(i);
+    }).map(function (i) {
+        return Object.assign(i, {
+            displayName: absName(i.refname),
+            committerdate: new Date(i.committerdate)
         });
     });
+    // .reduce((sum, i, index) => {
+    //     if (index === 0) {
+    //         sum.head = i;
+    //     }
+    //     else if (index === 1) {
+    //         sum.name = i;
+    //         sum.value = i;
+    //         sum.short = i;
+    //     }
+    //     else if (index === 2) {
+    //         sum.name += ` ${i}`;
+    //     };
+    //     return {};
+    // }, {}))
+    // .filter(i => i.value);
+    return Promise.resolve(ret);
 }
+
+var promises = [getGitName(), getHeads(), getRemotes()];
+
+Promise.all(promises).then(function (values) {
+    var _values = slicedToArray(values, 3),
+        gitName = _values[0],
+        heads = _values[1],
+        remotes = _values[2];
+
+    var localBranches = heads.map(function (i) {
+        return i.refname;
+    });
+    var myRemotes = remotes.filter(function (i) {
+        return i.author === gitName;
+    }).filter(function (i) {
+        return !localBranches.includes(i.displayName);
+    });
+    var choices = heads.concat(myRemotes).sort(function (a, b) {
+        return a.committerdate > b.committerdate;
+    });
+    var formattedChoices = choices.map(formatChoices);
+    console.log(choices);
+}).catch(writeOutErr);
+
+// git.on('close', function(code, signal) {
+//     var branchNames = refs.map(i => i.value).reverse();
+//
+//     refs.push(new inquirer.Separator());
+//     refs.push({
+//         name: 'Add new branch'
+//     });
+//     const choices = refs.reverse()
+//
+//     inquirer.prompt([{
+//         type: 'list',
+//         name: "name",
+//         message: "Choose a branch",
+//         default: 1,
+//         choices
+//     }]).then(choice => {
+//         if (choice.name === 'Add new branch') {
+//             newBranch(branchNames);
+//         } else {
+//             gitSpawn(['checkout', choice.name]);
+//         }
+//     });
+// });
+//
+// function gitSpawn(args) {
+//     return new Promise((resolve, reject) => {
+//         const spawnedProcess = child.spawn('git', args, {cwd: process.cwd()});
+//         spawnedProcess.stdout.on('data', writeOut);
+//         spawnedProcess.stderr.on('data', writeOutErr);
+//         spawnedProcess.on('close', resolve);
+//     });
+// }
+//
+// function newBranch(branchNames) {
+//     inquirer.prompt([{
+//         type: 'list',
+//         name: "name",
+//         message: "Choose a branch to branch from",
+//         choices: branchNames
+//     }]).then(branch => {
+//         inquirer.prompt([{
+//             type: 'input',
+//             name: "name",
+//             message: "Choose a name for your new branch"
+//         }]).then(choice => {
+//             inquirer.prompt([{
+//                 type: 'confirm',
+//                 name: "confirm",
+//                 message: `Fetch and merge ${branch.name} first? [git fetch origin ${branch.name}:${branch.name}]`
+//             }]).then(fetch => {
+//                 if (fetch.confirm) {
+//                     gitSpawn(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
+//                         gitSpawn(['checkout', '-b', choice.name, branch.name]);
+//                     });
+//                 } else {
+//                     gitSpawn(['checkout', '-b', choice.name, branch.name]);
+//                 }
+//             })
+//         });
+//     })
+// }
