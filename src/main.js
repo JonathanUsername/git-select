@@ -16,7 +16,7 @@ function doGit(args) {
             resolve(output.toString().trim());
         });
         git.stderr.on('data', (e) => {
-            process.stderr.write(`There was a problem running "git ${args.join(' ')}": ${e}`);
+            process.stderr.write(`Running "git ${args.join(' ')}": ${e}`);
             reject(e);
         });
     });
@@ -143,6 +143,7 @@ function checkout(branch, choice) {
                 doGit(['fetch', 'origin', `${branch.name}:${branch.name}`]).then(() => {
                     doGit(['checkout', '-b', choice.name, branch.name]).catch(writeOutErr);
                 }).catch(e => {
+                    process.stderr.write(`${e}`);
                     checkout(branch);
                 });
             } else {
