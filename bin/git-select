@@ -57,6 +57,7 @@ function doGit(args) {
             resolve(output.toString().trim());
         });
         git.stderr.on('data', function (e) {
+            process.stderr.write('There was a problem running "git ' + args.join(' ') + '": ' + e);
             reject(e);
         });
     });
@@ -169,6 +170,38 @@ Promise.all(promises).then(function (values) {
     });
 }).catch(writeOutErr);
 
+function fetchPrompt(branch) {
+    return inquirer.prompt([{
+        type: 'confirm',
+        name: 'confirm',
+        message: 'Fetch and merge ' + branch.name + ' first? [git fetch origin ' + branch.name + ':' + branch.name + ']'
+    }]).then(function (response) {
+        return response.confirm;
+    });
+}
+
+function branchNamePrompt() {
+    return inquirer.prompt([{
+        type: 'input',
+        name: 'name',
+        message: 'Choose a name for your new branch'
+    }]);
+}
+
+function checkout(branch, choice) {
+    return fetchPrompt(branch).then(function (confirm) {
+        if (confirm) {
+            doGit(['fetch', 'origin', branch.name + ':' + branch.name]).then(function () {
+                doGit(['checkout', '-b', choice.name, branch.name]);
+            }).catch(function (e) {
+                checkout(branch);
+            });
+        } else {
+            doGit(['checkout', '-b', choice.name, branch.name]);
+        }
+    });
+}
+
 // TODO: tidy this up
 function newBranch(branchNames) {
     inquirer.prompt([{
@@ -177,24 +210,8 @@ function newBranch(branchNames) {
         message: 'Choose a branch to branch from',
         choices: branchNames
     }]).then(function (branch) {
-        inquirer.prompt([{
-            type: 'input',
-            name: 'name',
-            message: 'Choose a name for your new branch'
-        }]).then(function (choice) {
-            inquirer.prompt([{
-                type: 'confirm',
-                name: 'confirm',
-                message: 'Fetch and merge ' + branch.name + ' first? [git fetch origin ' + branch.name + ':' + branch.name + ']'
-            }]).then(function (fetch) {
-                if (fetch.confirm) {
-                    doGit(['fetch', 'origin', branch.name + ':' + branch.name]).then(function () {
-                        doGit(['checkout', '-b', choice.name, branch.name]);
-                    });
-                } else {
-                    doGit(['checkout', '-b', choice.name, branch.name]);
-                }
-            });
+        branchNamePrompt().then(function (choice) {
+            checkout(branch, choice);
         });
     });
 }
