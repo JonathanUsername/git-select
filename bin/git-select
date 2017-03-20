@@ -192,14 +192,14 @@ function checkout(branch, choice) {
     return fetchPrompt(branch).then(function (confirm) {
         if (confirm) {
             doGit(['fetch', 'origin', branch.name + ':' + branch.name]).then(function () {
-                doGit(['checkout', '-b', choice.name, branch.name]);
+                doGit(['checkout', '-b', choice.name, branch.name]).catch(writeOutErr);
             }).catch(function (e) {
                 checkout(branch);
             });
         } else {
-            doGit(['checkout', '-b', choice.name, branch.name]);
+            doGit(['checkout', '-b', choice.name, branch.name]).catch(writeOutErr);
         }
-    });
+    }).catch(writeOutErr);
 }
 
 // TODO: tidy this up
