@@ -67,7 +67,14 @@ function writeOutErr(d) {
 
 function formatRefs(output) {
     const ret = output.split('\n')
-        .map(i => JSON.parse(i))
+        .map(i => {
+            try {
+                return JSON.parse(i);
+            } catch (e) {
+                var formatted = i.replace(/[\\\[\]]+/g, '');
+                return JSON.parse(formatted);
+            }
+        })
         .map(i =>
             Object.assign(i, {
                 displayName: absName(i.refname),
